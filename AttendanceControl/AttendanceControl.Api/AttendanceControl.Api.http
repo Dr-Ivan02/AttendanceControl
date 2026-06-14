@@ -1,6 +1,0 @@
-@AttendanceControl.Api_HostAddress = http://localhost:5288
-
-GET {{AttendanceControl.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
