@@ -9,8 +9,8 @@ namespace AttendanceControl.Api.Controllers
     {
         private static readonly List<Student> _students = new()
         {
-            new Student { Id = 1, Code = "STU001", Name = "Ivan Hernandez" },
-            new Student { Id = 2, Code = "STU002", Name = "John Doe" }
+        new Student { Id = 1, Code = "STU001", Name = "Ivan Hernandez", CourseId = 1 },
+        new Student { Id = 2, Code = "STU002", Name = "John Doe", CourseId = 1 }
         };
 
         [HttpGet]
@@ -28,6 +28,9 @@ namespace AttendanceControl.Api.Controllers
         {
             if (string.IsNullOrWhiteSpace(student.Name))
                 return BadRequest("Name is required.");
+
+            if (student.CourseId <= 0)
+                return BadRequest("CourseId is required and must be valid.");
 
             student.Id = _students.Any() ? _students.Max(s => s.Id) + 1 : 1;
             _students.Add(student);
