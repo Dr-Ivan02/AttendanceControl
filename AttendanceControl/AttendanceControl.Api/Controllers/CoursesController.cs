@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using AttendanceControl.Api.Data;
 using AttendanceControl.Api.Models.Entities;
+using AttendanceControl.Api.Models.Dtos;
 
 namespace AttendanceControl.Api.Controllers
 {
@@ -7,53 +9,119 @@ namespace AttendanceControl.Api.Controllers
     [Route("api/courses")]
     public class CoursesController : ControllerBase
     {
-        private static readonly List<Course> _courses = new()
+        private readonly ApplicationDbContext _context;
+
+        public CoursesController(ApplicationDbContext context)
         {
-            new Course { Id = 1, Code = "CS101", Name = "Software Programming I" },
-            new Course { Id = 2, Code = "CS102", Name = "Database Design" }
-        };
+            _context = context;
+        }
 
         [HttpGet]
-        public ActionResult<IEnumerable<Course>> GetAll() => Ok(_courses);
+        public ActionResult<IEnumerable<CourseDTO>> GetAll()
+        {
+            var courses = _context.Courses.ToList();
+            var courseDTOs = courses.Select(c => new CourseDTO
+            {
+                Id = c.Id,
+                Code = c.Code,
+                Name = c.Name
+            }).ToList();
+
+            return Ok(courseDTOs);
+        }
 
         [HttpGet("{id}")]
-        public ActionResult<Course> GetById(int id)
+        public ActionResult<CourseDTO> GetById(int id)
         {
-            var course = _courses.FirstOrDefault(c => c.Id == id);
-            return course == null ? NotFound() : Ok(course);
+            var course = _context.Courses.Find(id);
+            if (course == null) return NotFound();
+
+            var courseDTO = new CourseDTO
+            {
+                Id = course.Id,
+                Code = course.Code,
+                Name = course.Name
+            };
+
+            return Ok(courseDTO);
         }
 
         [HttpPost]
-        public ActionResult<Course> Create(Course course)
+        public ActionResult<CourseDTO> Create([FromBody] CreateCourseDTO request)
         {
-            if (string.IsNullOrWhiteSpace(course.Name))
-                return BadRequest("Name is required.");
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return BadRequest("El nombre del curso es obligatorio.");
+            }
 
-            course.Id = _courses.Any() ? _courses.Max(c => c.Id) + 1 : 1;
-            _courses.Add(course);
-            return CreatedAtAction(nameof(GetById), new { id = course.Id }, course);
+            var newCourse = new Course
+            {
+                Code = request.Code,
+                Name = request.Name,
+                IsActive = true
+            };
+
+            _context.Courses.Add(newCourse);
+            _context.SaveChanges();
+
+            var responseDTO = new CourseDTO
+            {
+                Id = newCourse.Id,
+                Code = newCourse.Code,
+                Name = newCourse.Name
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = newCourse.Id }, responseDTO);
         }
 
         [HttpPut("{id}")]
-        public IActionResult Update(int id, Course course)
+        public IActionResult Update(int id, [FromBody] CreateCourseDTO request)
         {
-            var existing = _courses.FirstOrDefault(c => c.Id == id);
-            if (existing == null) return NotFound();
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return BadRequest("El nombre del curso no puede estar vacío.");
+            }
 
-            existing.Name = course.Name;
-            existing.Code = course.Code;
-            existing.IsActive = course.IsActive;
+            var existingCourse = _context.Courses.Find(id);
+            if (existingCourse == null) return NotFound();
+
+            existingCourse.Name = request.Name;
+            existingCourse.Code = request.Code;
+
+            _context.SaveChanges();
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            var existing = _courses.FirstOrDefault(c => c.Id == id);
-            if (existing == null) return NotFound();
+            var course = _context.Courses.Find(id);
+            if (course == null) return NotFound();
 
-            _courses.Remove(existing);
+            _context.Courses.Remove(course);
+            _context.SaveChanges();
             return NoContent();
+        }
+
+        [HttpGet("{courseId}/students")]
+        public ActionResult<IEnumerable<StudentDTO>> GetStudentsByCourse(int courseId)
+        {
+            var exists = _context.Courses.Any(c => c.Id == courseId);
+            if (!exists) return NotFound();
+
+            var students = _context.Students
+                .Where(s => s.CourseId == courseId)
+                .ToList();
+
+            var studentDTOs = students.Select(s => new StudentDTO
+            {
+                Id = s.Id,
+                Code = s.Code,
+                Name = s.Name,
+                CourseId = s.CourseId
+            }).ToList();
+
+            return Ok(studentDTOs);
         }
     }
 }
