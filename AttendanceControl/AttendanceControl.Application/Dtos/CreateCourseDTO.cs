@@ -1,4 +1,4 @@
-﻿namespace AttendanceControl.Api.Models.Dtos
+﻿namespace AttendanceControl.Application.Dtos.Course
 {
     public class CreateCourseDTO
     {

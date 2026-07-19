@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using AttendanceControl.Infrastructure.Context;
 using AttendanceControl.Infrastructure.Repositories;
+using AttendanceControl.Application.Contract;
+using AttendanceControl.Application.Services;
+using AttendanceControl.Application.Mapping;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +16,11 @@ builder.Services.AddScoped<CourseRepository>();
 builder.Services.AddScoped<StudentRepository>();
 builder.Services.AddScoped<InstructorRepository>();
 builder.Services.AddScoped<AttendanceRepository>();
+
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
+
+builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IStudentService, StudentService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

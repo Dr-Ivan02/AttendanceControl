@@ -1,7 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using AttendanceControl.Domain.Entities;
-using AttendanceControl.Infrastructure.Repositories;
-using AttendanceControl.Api.Models.Dtos;
+﻿using AttendanceControl.Application.Contract;
+using AttendanceControl.Application.Dtos.Student;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AttendanceControl.Api.Controllers
 {
@@ -9,133 +8,66 @@ namespace AttendanceControl.Api.Controllers
     [Route("api/students")]
     public class StudentsController : ControllerBase
     {
-        private readonly StudentRepository _studentRepository;
-        private readonly CourseRepository _courseRepository;
+        private readonly IStudentService _studentService;
 
-        public StudentsController(StudentRepository studentRepository, CourseRepository courseRepository)
+        public StudentsController(IStudentService studentService)
         {
-            _studentRepository = studentRepository;
-            _courseRepository = courseRepository;
+            _studentService = studentService;
         }
 
         [HttpGet]
         public ActionResult<IEnumerable<StudentDTO>> GetAll()
         {
-            var students = _studentRepository.GetAll();
-            var studentDTOs = students.Select(s => new StudentDTO
-            {
-                Id = s.Id,
-                Code = s.Code,
-                Name = s.Name,
-                CourseId = s.CourseId
-            }).ToList();
-
-            return Ok(studentDTOs);
+            return Ok(_studentService.GetAll());
         }
 
         [HttpGet("{id}")]
         public ActionResult<StudentDTO> GetById(int id)
         {
-            var student = _studentRepository.GetById(id);
+            var student = _studentService.GetById(id);
             if (student == null) return NotFound();
-
-            var studentDTO = new StudentDTO
-            {
-                Id = student.Id,
-                Code = student.Code,
-                Name = student.Name,
-                CourseId = student.CourseId
-            };
-
-            return Ok(studentDTO);
+            return Ok(student);
         }
 
         [HttpPost]
         public ActionResult<StudentDTO> Create([FromBody] CreateStudentDTO request)
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
+            try
             {
-                return BadRequest("El nombre del estudiante es obligatorio.");
+                var created = _studentService.Create(request);
+                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
-
-            // Validar la integridad referencial
-            var courseExists = _courseRepository.Exists(request.CourseId);
-            if (!courseExists)
+            catch (ArgumentException ex)
             {
-                return BadRequest($"No existe un Curso con Id = {request.CourseId}.");
+                return BadRequest(ex.Message);
             }
-
-            var newStudent = new Student
-            {
-                Code = request.Code,
-                Name = request.Name,
-                CourseId = request.CourseId,
-                IsActive = true
-            };
-
-            _studentRepository.Create(newStudent);
-
-            var responseDTO = new StudentDTO
-            {
-                Id = newStudent.Id,
-                Code = newStudent.Code,
-                Name = newStudent.Name,
-                CourseId = newStudent.CourseId
-            };
-
-            return CreatedAtAction(nameof(GetById), new { id = newStudent.Id }, responseDTO);
         }
 
         [HttpPut("{id}")]
         public IActionResult Update(int id, [FromBody] CreateStudentDTO request)
         {
-            var existingStudent = _studentRepository.GetById(id);
-            if (existingStudent == null) return NotFound();
-
-            if (string.IsNullOrWhiteSpace(request.Name))
+            try
             {
-                return BadRequest("El nombre del estudiante no puede estar vacío.");
+                if (!_studentService.Update(id, request)) return NotFound();
+                return NoContent();
             }
-
-            var courseExists = _courseRepository.Exists(request.CourseId);
-            if (!courseExists)
+            catch (ArgumentException ex)
             {
-                return BadRequest($"No existe un Curso con Id = {request.CourseId}.");
+                return BadRequest(ex.Message);
             }
-
-            existingStudent.Name = request.Name;
-            existingStudent.Code = request.Code;
-            existingStudent.CourseId = request.CourseId;
-
-            _studentRepository.Update(existingStudent);
-            return NoContent();
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            var student = _studentRepository.GetById(id);
-            if (student == null) return NotFound();
-
-            _studentRepository.Delete(id);
+            if (!_studentService.Delete(id)) return NotFound();
             return NoContent();
         }
 
         [HttpGet("with-course")]
         public ActionResult<IEnumerable<StudentWithCourseDTO>> GetStudentsWithCourse()
         {
-            var students = _studentRepository.GetStudentsWithCourse();
-
-            var resultList = students.Select(s => new StudentWithCourseDTO
-            {
-                Id = s.Id,
-                Code = s.Code,
-                Name = s.Name,
-                CourseId = s.CourseId,
-                CourseName = s.Course != null ? s.Course.Name : "Sin Curso Asignado"
-            }).ToList();
-
-            return Ok(resultList);
+            return Ok(_studentService.GetStudentsWithCourse());
         }
     }
 }
