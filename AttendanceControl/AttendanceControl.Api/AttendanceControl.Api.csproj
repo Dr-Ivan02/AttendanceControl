@@ -17,4 +17,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AttendanceControl.Domain\AttendanceControl.Domain.csproj" />
+    <ProjectReference Include="..\AttendanceControl.Infrastructure\AttendanceControl.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

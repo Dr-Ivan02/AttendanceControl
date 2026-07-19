@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using AttendanceControl.Api.Data;
-using AttendanceControl.Api.Models.Entities;
+using AttendanceControl.Domain.Entities;
+using AttendanceControl.Infrastructure.Repositories;
 using AttendanceControl.Api.Models.Dtos;
 
 namespace AttendanceControl.Api.Controllers
@@ -10,17 +9,19 @@ namespace AttendanceControl.Api.Controllers
     [Route("api/students")]
     public class StudentsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly StudentRepository _studentRepository;
+        private readonly CourseRepository _courseRepository;
 
-        public StudentsController(ApplicationDbContext context)
+        public StudentsController(StudentRepository studentRepository, CourseRepository courseRepository)
         {
-            _context = context;
+            _studentRepository = studentRepository;
+            _courseRepository = courseRepository;
         }
 
         [HttpGet]
         public ActionResult<IEnumerable<StudentDTO>> GetAll()
         {
-            var students = _context.Students.ToList();
+            var students = _studentRepository.GetAll();
             var studentDTOs = students.Select(s => new StudentDTO
             {
                 Id = s.Id,
@@ -35,7 +36,7 @@ namespace AttendanceControl.Api.Controllers
         [HttpGet("{id}")]
         public ActionResult<StudentDTO> GetById(int id)
         {
-            var student = _context.Students.Find(id);
+            var student = _studentRepository.GetById(id);
             if (student == null) return NotFound();
 
             var studentDTO = new StudentDTO
@@ -57,8 +58,8 @@ namespace AttendanceControl.Api.Controllers
                 return BadRequest("El nombre del estudiante es obligatorio.");
             }
 
-            // Validar la integridad referencial 
-            var courseExists = _context.Courses.Any(c => c.Id == request.CourseId);
+            // Validar la integridad referencial
+            var courseExists = _courseRepository.Exists(request.CourseId);
             if (!courseExists)
             {
                 return BadRequest($"No existe un Curso con Id = {request.CourseId}.");
@@ -72,8 +73,7 @@ namespace AttendanceControl.Api.Controllers
                 IsActive = true
             };
 
-            _context.Students.Add(newStudent);
-            _context.SaveChanges();
+            _studentRepository.Create(newStudent);
 
             var responseDTO = new StudentDTO
             {
@@ -89,7 +89,7 @@ namespace AttendanceControl.Api.Controllers
         [HttpPut("{id}")]
         public IActionResult Update(int id, [FromBody] CreateStudentDTO request)
         {
-            var existingStudent = _context.Students.Find(id);
+            var existingStudent = _studentRepository.GetById(id);
             if (existingStudent == null) return NotFound();
 
             if (string.IsNullOrWhiteSpace(request.Name))
@@ -97,7 +97,7 @@ namespace AttendanceControl.Api.Controllers
                 return BadRequest("El nombre del estudiante no puede estar vacío.");
             }
 
-            var courseExists = _context.Courses.Any(c => c.Id == request.CourseId);
+            var courseExists = _courseRepository.Exists(request.CourseId);
             if (!courseExists)
             {
                 return BadRequest($"No existe un Curso con Id = {request.CourseId}.");
@@ -107,27 +107,24 @@ namespace AttendanceControl.Api.Controllers
             existingStudent.Code = request.Code;
             existingStudent.CourseId = request.CourseId;
 
-            _context.SaveChanges();
+            _studentRepository.Update(existingStudent);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            var student = _context.Students.Find(id);
+            var student = _studentRepository.GetById(id);
             if (student == null) return NotFound();
 
-            _context.Students.Remove(student);
-            _context.SaveChanges();
+            _studentRepository.Delete(id);
             return NoContent();
         }
 
         [HttpGet("with-course")]
         public ActionResult<IEnumerable<StudentWithCourseDTO>> GetStudentsWithCourse()
         {
-            var students = _context.Students
-                .Include(s => s.Course)
-                .ToList();
+            var students = _studentRepository.GetStudentsWithCourse();
 
             var resultList = students.Select(s => new StudentWithCourseDTO
             {

@@ -1,8 +1,9 @@
-﻿namespace AttendanceControl.Api.Models.Entities
+﻿using AttendanceControl.Domain.Core;
+
+namespace AttendanceControl.Domain.Entities
 {
-    public class Student
+    public class Student : BaseEntity
     {
-        public int Id { get; set; }
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;

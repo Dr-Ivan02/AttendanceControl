@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using AttendanceControl.Api.Data;
-using AttendanceControl.Api.Models.Entities;
+﻿using AttendanceControl.Domain.Entities;
+using AttendanceControl.Infrastructure.Repositories;
 using AttendanceControl.Api.Models.Dtos;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AttendanceControl.Api.Controllers
 {
@@ -9,17 +9,17 @@ namespace AttendanceControl.Api.Controllers
     [Route("api/courses")]
     public class CoursesController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly CourseRepository _courseRepository;
 
-        public CoursesController(ApplicationDbContext context)
+        public CoursesController(CourseRepository courseRepository)
         {
-            _context = context;
+            _courseRepository = courseRepository;
         }
 
         [HttpGet]
         public ActionResult<IEnumerable<CourseDTO>> GetAll()
         {
-            var courses = _context.Courses.ToList();
+            var courses = _courseRepository.GetAll();
             var courseDTOs = courses.Select(c => new CourseDTO
             {
                 Id = c.Id,
@@ -33,7 +33,7 @@ namespace AttendanceControl.Api.Controllers
         [HttpGet("{id}")]
         public ActionResult<CourseDTO> GetById(int id)
         {
-            var course = _context.Courses.Find(id);
+            var course = _courseRepository.GetById(id);
             if (course == null) return NotFound();
 
             var courseDTO = new CourseDTO
@@ -61,8 +61,7 @@ namespace AttendanceControl.Api.Controllers
                 IsActive = true
             };
 
-            _context.Courses.Add(newCourse);
-            _context.SaveChanges();
+            _courseRepository.Create(newCourse);
 
             var responseDTO = new CourseDTO
             {
@@ -82,36 +81,32 @@ namespace AttendanceControl.Api.Controllers
                 return BadRequest("El nombre del curso no puede estar vacío.");
             }
 
-            var existingCourse = _context.Courses.Find(id);
+            var existingCourse = _courseRepository.GetById(id);
             if (existingCourse == null) return NotFound();
 
             existingCourse.Name = request.Name;
             existingCourse.Code = request.Code;
 
-            _context.SaveChanges();
+            _courseRepository.Update(existingCourse);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            var course = _context.Courses.Find(id);
+            var course = _courseRepository.GetById(id);
             if (course == null) return NotFound();
 
-            _context.Courses.Remove(course);
-            _context.SaveChanges();
+            _courseRepository.Delete(id);
             return NoContent();
         }
 
         [HttpGet("{courseId}/students")]
         public ActionResult<IEnumerable<StudentDTO>> GetStudentsByCourse(int courseId)
         {
-            var exists = _context.Courses.Any(c => c.Id == courseId);
-            if (!exists) return NotFound();
+            if (!_courseRepository.Exists(courseId)) return NotFound();
 
-            var students = _context.Students
-                .Where(s => s.CourseId == courseId)
-                .ToList();
+            var students = _courseRepository.GetStudentsByCourse(courseId);
 
             var studentDTOs = students.Select(s => new StudentDTO
             {

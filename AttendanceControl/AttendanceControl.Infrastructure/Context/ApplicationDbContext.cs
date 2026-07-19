@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using AttendanceControl.Api.Models.Entities;
+using AttendanceControl.Domain.Entities;
 
-namespace AttendanceControl.Api.Data
+namespace AttendanceControl.Infrastructure.Context
 {
     public class ApplicationDbContext : DbContext
     {
@@ -12,5 +12,7 @@ namespace AttendanceControl.Api.Data
 
         public DbSet<Student> Students { get; set; } = null!;
         public DbSet<Course> Courses { get; set; } = null!;
+        public DbSet<Instructor> Instructors { get; set; } = null!;
+        public DbSet<Attendance> Attendances { get; set; } = null!;
     }
 }
