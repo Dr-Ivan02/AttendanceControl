@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AttendanceControl.Application\AttendanceControl.Application.csproj" />
     <ProjectReference Include="..\AttendanceControl.Domain\AttendanceControl.Domain.csproj" />
     <ProjectReference Include="..\AttendanceControl.Infrastructure\AttendanceControl.Infrastructure.csproj" />
   </ItemGroup>

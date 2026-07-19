@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="AttendanceControl.Api/AttendanceControl.Api.csproj" />
+  <Project Path="AttendanceControl.Application/AttendanceControl.Application.csproj" Id="3df08afc-54a0-408d-a3fd-dfb219631074" />
   <Project Path="AttendanceControl.Domain/AttendanceControl.Domain.csproj" Id="86a43b4d-ce22-42ce-b70a-ad2ff49297f1" />
   <Project Path="AttendanceControl.Infrastructure/AttendanceControl.Infrastructure.csproj" Id="ab0d5524-bef3-4f25-88bc-ef4b1c83603b" />
 </Solution>
