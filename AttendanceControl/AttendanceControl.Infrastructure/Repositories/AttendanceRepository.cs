@@ -9,5 +9,10 @@ namespace AttendanceControl.Infrastructure.Repositories
         public AttendanceRepository(ApplicationDbContext context) : base(context)
         {
         }
+
+        public void Update(Attendance attendance)
+        {
+            _context.SaveChanges();
+        }
     }
 }
