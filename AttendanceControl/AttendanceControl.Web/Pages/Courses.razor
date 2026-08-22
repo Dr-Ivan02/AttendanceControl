@@ -33,32 +33,46 @@ else if (courses.Count == 0)
 }
 else
 {
-    <div class="card" style="padding:0;">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th>Instructor</th>
-                    <th style="width:160px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var course in courses)
-                {
-                    <tr>
-                        <td class="mono">@course.Code</td>
-                        <td>@course.Name</td>
-                        <td>@InstructorName(course)</td>
-                        <td>
-                            <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(course)">Editar</button>
-                            <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(course)">Eliminar</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" placeholder="Buscar por código, nombre o instructor..." @bind="searchTerm" @bind:event="oninput" />
     </div>
+
+    @if (FilteredCourses.Count == 0)
+    {
+        <div class="card empty-state">
+            <p>No se encontraron cursos que coincidan con "@searchTerm".</p>
+        </div>
+    }
+    else
+    {
+        <div class="card" style="padding:0;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Instructor</th>
+                        <th style="width:160px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var course in FilteredCourses)
+                    {
+                        <tr>
+                            <td class="mono">@course.Code</td>
+                            <td>@course.Name</td>
+                            <td>@InstructorName(course)</td>
+                            <td>
+                                <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(course)">Editar</button>
+                                <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(course)">Eliminar</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 }
 
 @if (showModal)
@@ -124,6 +138,18 @@ else
     private List<AttendanceControl.Web.Models.CourseDTO>? courses;
     private List<AttendanceControl.Web.Models.InstructorDTO>? instructors;
     private string? errorMessage;
+    private string searchTerm = "";
+
+    private List<AttendanceControl.Web.Models.CourseDTO> FilteredCourses =>
+        courses is null
+            ? new()
+            : string.IsNullOrWhiteSpace(searchTerm)
+                ? courses
+                : courses.Where(c =>
+                    c.Code.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    c.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    InstructorName(c).Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                  .ToList();
 
     private bool showModal = false;
     private int? editingId = null;

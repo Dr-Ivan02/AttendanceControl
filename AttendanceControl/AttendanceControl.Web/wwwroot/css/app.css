@@ -234,6 +234,7 @@ a {
 .stamp-absent {
     color: var(--color-danger);
 }
+
 .stamp-late {
     color: var(--color-accent);
 }
@@ -286,6 +287,43 @@ a {
     color: var(--color-ink-light);
 }
 
+.search-box {
+    position: relative;
+    max-width: 340px;
+    margin-bottom: 1rem;
+}
+
+    .search-box svg {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-ink-light);
+        pointer-events: none;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 0.55rem 0.75rem 0.55rem 2.3rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        font-family: var(--font-body);
+        font-size: 0.88rem;
+        background: #fff;
+        color: var(--color-ink);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(232, 163, 61, 0.18);
+        }
+
+        .search-box input::placeholder {
+            color: var(--color-ink-light);
+        }
+
 .alert {
     padding: 0.8rem 1rem;
     border-radius: var(--radius);
@@ -303,4 +341,109 @@ a {
     background: #E8F5F0;
     color: var(--color-success);
     border: 1px solid #C3E6D8;
+}
+
+#blazor-error-ui {
+    display: none !important;
+}
+
+.app-loading-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    background: var(--color-bg);
+}
+
+.app-loading-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: app-loading-fade-in 0.5s ease;
+}
+
+.app-loading-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--radius);
+    background: var(--color-ink);
+    color: var(--color-accent);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+
+.app-loading-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--color-ink);
+}
+
+    .app-loading-name span {
+        color: var(--color-accent);
+    }
+
+.loading-progress-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    animation: app-loading-fade-in 0.6s ease;
+}
+
+.loading-progress {
+    display: block;
+    width: 5rem;
+    height: 5rem;
+}
+
+    .loading-progress circle {
+        fill: none;
+        stroke: var(--color-border);
+        stroke-width: 0.5rem;
+        transform-origin: 50% 50%;
+        transform: rotate(-90deg);
+    }
+
+        .loading-progress circle:last-child {
+            stroke: var(--color-accent);
+            stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+            transition: stroke-dasharray 0.1s ease-in-out;
+        }
+
+.loading-progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--color-ink-light);
+}
+
+    .loading-progress-text:after {
+        content: var(--blazor-load-percentage-text, "Cargando...");
+    }
+
+@keyframes app-loading-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
