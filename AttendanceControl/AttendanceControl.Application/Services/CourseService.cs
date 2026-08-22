@@ -24,6 +24,14 @@ namespace AttendanceControl.Application.Services
             return _mapper.Map<IEnumerable<CourseDTO>>(courses);
         }
 
+        public IEnumerable<CourseDTO> GetAll(bool onlyActive)
+        {
+            var courses = _courseRepository.GetAll();
+            if (onlyActive)
+                courses = courses.Where(c => c.IsActive);
+
+            return _mapper.Map<IEnumerable<CourseDTO>>(courses);
+        }
         public CourseDTO? GetById(int id)
         {
             var course = _courseRepository.GetById(id);

@@ -1,5 +1,4 @@
-﻿
-using AttendanceControl.Domain.Core;
+﻿using AttendanceControl.Domain.Core;
 
 namespace AttendanceControl.Domain.Entities
 {
@@ -9,5 +8,21 @@ namespace AttendanceControl.Domain.Entities
         public string Name { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
         public List<Student> Students { get; set; } = new();
+
+        public Course()
+        {
+        }
+
+        public Course(string code, string name)
+        {
+            Code = code;
+            Name = name;
+            IsActive = true;
+        }
+
+        public override string GetDisplayName()
+        {
+            return $"{Code} - {Name}";
+        }
     }
 }

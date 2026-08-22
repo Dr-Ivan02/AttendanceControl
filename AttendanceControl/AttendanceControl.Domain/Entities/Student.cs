@@ -10,5 +10,22 @@ namespace AttendanceControl.Domain.Entities
 
         public int CourseId { get; set; }
         public Course? Course { get; set; }
+
+        public Student()
+        {
+        }
+
+        public Student(string code, string name, int courseId)
+        {
+            Code = code;
+            Name = name;
+            CourseId = courseId;
+            IsActive = true;
+        }
+
+        public override string GetDisplayName()
+        {
+            return $"{Code} - {Name}";
+        }
     }
 }
