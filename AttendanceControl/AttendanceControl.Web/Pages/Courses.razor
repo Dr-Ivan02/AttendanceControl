@@ -1,0 +1,208 @@
+﻿@page "/courses"
+@inject AttendanceControl.Web.Services.CourseApiService CourseService
+
+<PageTitle>Cursos</PageTitle>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+    <p style="color:var(--color-ink-light); margin:0;">Gestiona los cursos activos del instituto.</p>
+    <button class="btn btn-accent" @onclick="OpenCreateModal">+ Nuevo curso</button>
+</div>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (courses is null)
+{
+    <p>Cargando cursos...</p>
+}
+else if (courses.Count == 0)
+{
+    <div class="card empty-state">
+        <h3>Aún no hay cursos</h3>
+        <p>Crea el primero para empezar a inscribir estudiantes.</p>
+        <button class="btn btn-primary" @onclick="OpenCreateModal">+ Nuevo curso</button>
+    </div>
+}
+else
+{
+    <div class="card" style="padding:0;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th style="width:160px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var course in courses)
+                {
+                    <tr>
+                        <td class="mono">@course.Code</td>
+                        <td>@course.Name</td>
+                        <td>
+                            <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(course)">Editar</button>
+                            <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(course)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <h3>@(editingId is null ? "Nuevo curso" : "Editar curso")</h3>
+
+            @if (formError is not null)
+            {
+                <div class="alert alert-danger">@formError</div>
+            }
+
+            <div class="form-group">
+                <label>Código</label>
+                <input @bind="formCode" placeholder="Ej. MAT101" />
+            </div>
+            <div class="form-group">
+                <label>Nombre</label>
+                <input @bind="formName" placeholder="Ej. Matemática Básica" />
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
+                <button class="btn btn-secondary" @onclick="CloseModal">Cancelar</button>
+                <button class="btn btn-primary" @onclick="SaveCourse" disabled="@isSaving">
+                    @(isSaving ? "Guardando..." : "Guardar")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteConfirm && courseToDelete is not null)
+{
+    <div class="modal-backdrop" @onclick="CancelDelete">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <h3>¿Eliminar este curso?</h3>
+            <p style="color:var(--color-ink-light);">
+                Vas a eliminar <strong>@courseToDelete.Name</strong> (@courseToDelete.Code). Esta acción no se puede deshacer.
+            </p>
+            <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
+                <button class="btn btn-secondary" @onclick="CancelDelete">Cancelar</button>
+                <button class="btn btn-danger" @onclick="DoDelete">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AttendanceControl.Web.Models.CourseDTO>? courses;
+    private string? errorMessage;
+
+    private bool showModal = false;
+    private int? editingId = null;
+    private string formCode = "";
+    private string formName = "";
+    private string? formError;
+    private bool isSaving = false;
+
+    private bool showDeleteConfirm = false;
+    private AttendanceControl.Web.Models.CourseDTO? courseToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCourses();
+    }
+
+    private async Task LoadCourses()
+    {
+        try
+        {
+            errorMessage = null;
+            courses = await CourseService.GetAllAsync();
+        }
+        catch
+        {
+            errorMessage = "No se pudo conectar con el servidor. Verifica que la API esté corriendo.";
+            courses = new();
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        editingId = null;
+        formCode = "";
+        formName = "";
+        formError = null;
+        showModal = true;
+    }
+
+    private void OpenEditModal(AttendanceControl.Web.Models.CourseDTO course)
+    {
+        editingId = course.Id;
+        formCode = course.Code;
+        formName = course.Name;
+        formError = null;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private async Task SaveCourse()
+    {
+        if (string.IsNullOrWhiteSpace(formName) || string.IsNullOrWhiteSpace(formCode))
+        {
+            formError = "Código y nombre son obligatorios.";
+            return;
+        }
+
+        isSaving = true;
+        formError = null;
+
+        var dto = new AttendanceControl.Web.Models.CreateCourseDTO { Code = formCode, Name = formName };
+        bool success = editingId is null
+            ? await CourseService.CreateAsync(dto)
+            : await CourseService.UpdateAsync(editingId.Value, dto);
+
+        isSaving = false;
+
+        if (success)
+        {
+            showModal = false;
+            await LoadCourses();
+        }
+        else
+        {
+            formError = "No se pudo guardar el curso. Verifica los datos e intenta de nuevo.";
+        }
+    }
+
+    private void ConfirmDelete(AttendanceControl.Web.Models.CourseDTO course)
+    {
+        courseToDelete = course;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        courseToDelete = null;
+    }
+
+    private async Task DoDelete()
+    {
+        if (courseToDelete is null) return;
+
+        await CourseService.DeleteAsync(courseToDelete.Id);
+        showDeleteConfirm = false;
+        courseToDelete = null;
+        await LoadCourses();
+    }
+}

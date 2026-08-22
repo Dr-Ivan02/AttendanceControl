@@ -1,0 +1,69 @@
+﻿@page "/"
+@inject AttendanceControl.Web.Services.CourseApiService CourseService
+@inject AttendanceControl.Web.Services.StudentApiService StudentService
+@inject AttendanceControl.Web.Services.InstructorApiService InstructorService
+@inject AttendanceControl.Web.Services.AttendanceApiService AttendanceService
+
+<PageTitle>Panel</PageTitle>
+
+<p style="color:var(--color-ink-light); margin-top:0;">Resumen general.</p>
+
+@if (loading)
+{
+    <p>Cargando resumen...</p>
+}
+else
+{
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
+        <div class="card stat-card">
+            <span class="stat-value">@courseCount</span>
+            <span class="stat-label">Cursos activos</span>
+        </div>
+        <div class="card stat-card">
+            <span class="stat-value">@studentCount</span>
+            <span class="stat-label">Estudiantes</span>
+        </div>
+        <div class="card stat-card">
+            <span class="stat-value">@instructorCount</span>
+            <span class="stat-label">Instructores</span>
+        </div>
+        <div class="card stat-card">
+            <span class="stat-value">@attendanceRate%</span>
+            <span class="stat-label">Asistencia general</span>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private int courseCount;
+    private int studentCount;
+    private int instructorCount;
+    private int attendanceRate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var courses = await CourseService.GetAllAsync();
+            var students = await StudentService.GetAllAsync();
+            var instructors = await InstructorService.GetAllAsync();
+            var attendances = await AttendanceService.GetAllAsync();
+
+            courseCount = courses.Count;
+            studentCount = students.Count;
+            instructorCount = instructors.Count;
+            attendanceRate = attendances.Count == 0
+                ? 0
+                : (int)Math.Round(attendances.Count(a => a.IsPresent) * 100.0 / attendances.Count);
+        }
+        catch
+        {
+            courseCount = studentCount = instructorCount = attendanceRate = 0;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

@@ -1,0 +1,245 @@
+﻿@page "/students"
+@inject AttendanceControl.Web.Services.StudentApiService StudentService
+@inject AttendanceControl.Web.Services.CourseApiService CourseService
+
+<PageTitle>Estudiantes</PageTitle>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+    <p style="color:var(--color-ink-light); margin:0;">Gestiona los estudiantes inscritos.</p>
+    <button class="btn btn-accent" @onclick="OpenCreateModal" disabled="@(courses is null || courses.Count == 0)">+ Nuevo estudiante</button>
+</div>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (courses is not null && courses.Count == 0)
+{
+    <div class="alert alert-danger">Debes crear al menos un curso antes de agregar estudiantes.</div>
+}
+
+@if (students is null)
+{
+    <p>Cargando estudiantes...</p>
+}
+else if (students.Count == 0)
+{
+    <div class="card empty-state">
+        <h3>Aún no hay estudiantes</h3>
+        <p>Agrega el primero para empezar a tomar asistencia.</p>
+    </div>
+}
+else
+{
+    <div class="card" style="padding:0;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Curso</th>
+                    <th style="width:160px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var student in students)
+                {
+                    <tr>
+                        <td class="mono">@student.Code</td>
+                        <td>@student.Name</td>
+                        <td>@CourseName(student.CourseId)</td>
+                        <td>
+                            <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(student)">Editar</button>
+                            <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(student)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <h3>@(editingId is null ? "Nuevo estudiante" : "Editar estudiante")</h3>
+
+            @if (formError is not null)
+            {
+                <div class="alert alert-danger">@formError</div>
+            }
+
+            <div class="form-group">
+                <label>Código</label>
+                <input @bind="formCode" placeholder="Ej. EST001" />
+            </div>
+            <div class="form-group">
+                <label>Nombre</label>
+                <input @bind="formName" placeholder="Ej. Juan Pérez" />
+            </div>
+            <div class="form-group">
+                <label>Curso</label>
+                <select @bind="formCourseId">
+                    <option value="0">Selecciona un curso...</option>
+                    @if (courses is not null)
+                    {
+                        @foreach (var c in courses)
+                        {
+                            <option value="@c.Id">@c.Code - @c.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
+                <button class="btn btn-secondary" @onclick="CloseModal">Cancelar</button>
+                <button class="btn btn-primary" @onclick="SaveStudent" disabled="@isSaving">
+                    @(isSaving ? "Guardando..." : "Guardar")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteConfirm && studentToDelete is not null)
+{
+    <div class="modal-backdrop" @onclick="CancelDelete">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <h3>¿Eliminar este estudiante?</h3>
+            <p style="color:var(--color-ink-light);">
+                Vas a eliminar <strong>@studentToDelete.Name</strong> (@studentToDelete.Code). Esta acción no se puede deshacer.
+            </p>
+            <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
+                <button class="btn btn-secondary" @onclick="CancelDelete">Cancelar</button>
+                <button class="btn btn-danger" @onclick="DoDelete">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AttendanceControl.Web.Models.StudentDTO>? students;
+    private List<AttendanceControl.Web.Models.CourseDTO>? courses;
+    private string? errorMessage;
+
+    private bool showModal = false;
+    private int? editingId = null;
+    private string formCode = "";
+    private string formName = "";
+    private int formCourseId = 0;
+    private string? formError;
+    private bool isSaving = false;
+
+    private bool showDeleteConfirm = false;
+    private AttendanceControl.Web.Models.StudentDTO? studentToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            errorMessage = null;
+            courses = await CourseService.GetAllAsync();
+            students = await StudentService.GetAllAsync();
+        }
+        catch
+        {
+            errorMessage = "No se pudo conectar con el servidor. Verifica que la API esté corriendo.";
+            students = new();
+            courses = new();
+        }
+    }
+
+    private async Task ReloadStudents()
+    {
+        students = await StudentService.GetAllAsync();
+    }
+
+    private string CourseName(int courseId)
+    {
+        var course = courses?.FirstOrDefault(c => c.Id == courseId);
+        return course is null ? "—" : $"{course.Code} - {course.Name}";
+    }
+
+    private void OpenCreateModal()
+    {
+        editingId = null;
+        formCode = "";
+        formName = "";
+        formCourseId = 0;
+        formError = null;
+        showModal = true;
+    }
+
+    private void OpenEditModal(AttendanceControl.Web.Models.StudentDTO student)
+    {
+        editingId = student.Id;
+        formCode = student.Code;
+        formName = student.Name;
+        formCourseId = student.CourseId;
+        formError = null;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private async Task SaveStudent()
+    {
+        if (string.IsNullOrWhiteSpace(formName) || string.IsNullOrWhiteSpace(formCode))
+        {
+            formError = "Código y nombre son obligatorios.";
+            return;
+        }
+        if (formCourseId == 0)
+        {
+            formError = "Debes seleccionar un curso.";
+            return;
+        }
+
+        isSaving = true;
+        formError = null;
+
+        var dto = new AttendanceControl.Web.Models.CreateStudentDTO { Code = formCode, Name = formName, CourseId = formCourseId };
+        bool success = editingId is null
+            ? await StudentService.CreateAsync(dto)
+            : await StudentService.UpdateAsync(editingId.Value, dto);
+
+        isSaving = false;
+
+        if (success)
+        {
+            showModal = false;
+            await ReloadStudents();
+        }
+        else
+        {
+            formError = "No se pudo guardar el estudiante. Verifica los datos e intenta de nuevo.";
+        }
+    }
+
+    private void ConfirmDelete(AttendanceControl.Web.Models.StudentDTO student)
+    {
+        studentToDelete = student;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        studentToDelete = null;
+    }
+
+    private async Task DoDelete()
+    {
+        if (studentToDelete is null) return;
+
+        await StudentService.DeleteAsync(studentToDelete.Id);
+        showDeleteConfirm = false;
+        studentToDelete = null;
+        await ReloadStudents();
+    }
+}

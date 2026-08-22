@@ -1,0 +1,21 @@
+﻿@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand">Attendance<span>Control</span></div>
+        <NavMenu />
+    </aside>
+
+    <div class="main-area">
+        <header class="topbar">
+            <h2 style="margin:0;">@PageTitle</h2>
+        </header>
+        <main class="page-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+@code {
+    private string PageTitle { get; set; } = "Panel";
+}
