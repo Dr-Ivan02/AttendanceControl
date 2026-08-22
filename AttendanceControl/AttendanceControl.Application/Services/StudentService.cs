@@ -21,14 +21,14 @@ namespace AttendanceControl.Application.Services
 
         public IEnumerable<StudentDTO> GetAll()
         {
-            var students = _studentRepository.GetAll();
+            var students = _studentRepository.GetAll().Where(s => s.IsActive);
             return _mapper.Map<IEnumerable<StudentDTO>>(students);
         }
 
         public StudentDTO? GetById(int id)
         {
             var student = _studentRepository.GetById(id);
-            return student == null ? null : _mapper.Map<StudentDTO>(student);
+            return student == null || !student.IsActive ? null : _mapper.Map<StudentDTO>(student);
         }
 
         public StudentDTO Create(CreateStudentDTO request)
@@ -36,6 +36,7 @@ namespace AttendanceControl.Application.Services
             ValidateFields(request.Name, request.CourseId);
 
             var newStudent = _mapper.Map<Student>(request);
+            newStudent.Code = _studentRepository.GenerateNextCode();
             newStudent.IsActive = true;
 
             _studentRepository.Create(newStudent);
@@ -51,7 +52,6 @@ namespace AttendanceControl.Application.Services
             ValidateFields(request.Name, request.CourseId);
 
             existingStudent.Name = request.Name;
-            existingStudent.Code = request.Code;
             existingStudent.CourseId = request.CourseId;
 
             _studentRepository.Update(existingStudent);
@@ -61,10 +61,11 @@ namespace AttendanceControl.Application.Services
         public bool Delete(int id)
         {
             var student = _studentRepository.GetById(id);
-            if (student == null)
+            if (student == null || !student.IsActive)
                 return false;
 
-            _studentRepository.Delete(id);
+            student.IsActive = false;
+            _studentRepository.Update(student);
             return true;
         }
 
@@ -79,8 +80,9 @@ namespace AttendanceControl.Application.Services
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("El nombre del estudiante es obligatorio.");
 
-            if (!_courseRepository.Exists(courseId))
-                throw new ArgumentException($"No existe un Curso con Id = {courseId}.");
+            var course = _courseRepository.GetById(courseId);
+            if (course == null || !course.IsActive)
+                throw new ArgumentException($"No existe un Curso activo con Id = {courseId}.");
         }
     }
 }

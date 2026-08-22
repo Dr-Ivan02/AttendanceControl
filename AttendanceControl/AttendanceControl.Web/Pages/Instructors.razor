@@ -27,30 +27,44 @@ else if (instructors.Count == 0)
 }
 else
 {
-    <div class="card" style="padding:0;">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th style="width:160px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var instructor in instructors)
-                {
-                    <tr>
-                        <td class="mono">@instructor.Code</td>
-                        <td>@instructor.Name</td>
-                        <td>
-                            <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(instructor)">Editar</button>
-                            <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(instructor)">Eliminar</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" placeholder="Buscar por código o nombre..." @bind="searchTerm" @bind:event="oninput" />
     </div>
+
+    @if (FilteredInstructors.Count == 0)
+    {
+        <div class="card empty-state">
+            <p>No se encontraron instructores que coincidan con "@searchTerm".</p>
+        </div>
+    }
+    else
+    {
+        <div class="card" style="padding:0;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th style="width:160px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var instructor in FilteredInstructors)
+                    {
+                        <tr>
+                            <td class="mono">@instructor.Code</td>
+                            <td>@instructor.Name</td>
+                            <td>
+                                <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(instructor)">Editar</button>
+                                <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(instructor)">Eliminar</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 }
 
 @if (showModal)
@@ -64,10 +78,14 @@ else
                 <div class="alert alert-danger">@formError</div>
             }
 
-            <div class="form-group">
-                <label>Código</label>
-                <input @bind="formCode" placeholder="Ej. PROF01" />
-            </div>
+            @if (editingId is not null)
+            {
+                <div class="form-group">
+                    <label>Código</label>
+                    <input value="@formCode" disabled />
+                </div>
+            }
+
             <div class="form-group">
                 <label>Nombre</label>
                 <input @bind="formName" placeholder="Ej. María Gómez" />
@@ -102,6 +120,17 @@ else
 @code {
     private List<AttendanceControl.Web.Models.InstructorDTO>? instructors;
     private string? errorMessage;
+    private string searchTerm = "";
+
+    private List<AttendanceControl.Web.Models.InstructorDTO> FilteredInstructors =>
+        instructors is null
+            ? new()
+            : string.IsNullOrWhiteSpace(searchTerm)
+                ? instructors
+                : instructors.Where(i =>
+                    i.Code.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    i.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                  .ToList();
 
     private bool showModal = false;
     private int? editingId = null;
@@ -157,30 +186,39 @@ else
 
     private async Task SaveInstructor()
     {
-        if (string.IsNullOrWhiteSpace(formName) || string.IsNullOrWhiteSpace(formCode))
+        if (string.IsNullOrWhiteSpace(formName))
         {
-            formError = "Código y nombre son obligatorios.";
+            formError = "El nombre es obligatorio.";
             return;
         }
 
         isSaving = true;
         formError = null;
 
-        var dto = new AttendanceControl.Web.Models.CreateInstructorDTO { Code = formCode, Name = formName };
-        bool success = editingId is null
-            ? await InstructorService.CreateAsync(dto)
-            : await InstructorService.UpdateAsync(editingId.Value, dto);
-
-        isSaving = false;
-
-        if (success)
+        try
         {
-            showModal = false;
-            await LoadInstructors();
+            var dto = new AttendanceControl.Web.Models.CreateInstructorDTO { Name = formName };
+            bool success = editingId is null
+                ? await InstructorService.CreateAsync(dto)
+                : await InstructorService.UpdateAsync(editingId.Value, dto);
+
+            if (success)
+            {
+                showModal = false;
+                await LoadInstructors();
+            }
+            else
+            {
+                formError = "No se pudo guardar el instructor. Verifica los datos e intenta de nuevo.";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            formError = "No se pudo guardar el instructor. Verifica los datos e intenta de nuevo.";
+            formError = $"Error inesperado al guardar: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
         }
     }
 

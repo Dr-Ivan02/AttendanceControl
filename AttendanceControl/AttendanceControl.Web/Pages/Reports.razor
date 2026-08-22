@@ -1,0 +1,220 @@
+﻿@page "/reports"
+@inject AttendanceControl.Web.Services.AttendanceApiService AttendanceService
+@inject AttendanceControl.Web.Services.StudentApiService StudentService
+@inject AttendanceControl.Web.Services.CourseApiService CourseService
+
+<PageTitle>Reportes</PageTitle>
+
+<p style="color:var(--color-ink-light); margin-top:0;">Consulta el historial de asistencia por estudiante o por curso.</p>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (loading)
+{
+    <p>Cargando datos...</p>
+}
+else
+{
+    <div class="card" style="margin-bottom:1.5rem;">
+        <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+            <div class="form-group" style="margin-bottom:0; min-width:200px;">
+                <label>Tipo de reporte</label>
+                <select @bind="reportType">
+                    <option value="student">Por estudiante</option>
+                    <option value="course">Por curso</option>
+                </select>
+            </div>
+
+            @if (reportType == "student")
+            {
+                <div class="form-group" style="margin-bottom:0; min-width:260px;">
+                    <label>Estudiante</label>
+                    <select @bind="selectedStudentId">
+                        <option value="0">Selecciona un estudiante...</option>
+                        @foreach (var s in students)
+                        {
+                            <option value="@s.Id">@s.Code - @s.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+            else
+            {
+                <div class="form-group" style="margin-bottom:0; min-width:260px;">
+                    <label>Curso</label>
+                    <select @bind="selectedCourseId">
+                        <option value="0">Selecciona un curso...</option>
+                        @foreach (var c in courses)
+                        {
+                            <option value="@c.Id">@c.Code - @c.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (reportType == "student" && selectedStudentId != 0)
+    {
+        var sessions = attendances
+            .Where(a => a.Details.Any(d => d.StudentId == selectedStudentId))
+            .OrderByDescending(a => a.Date)
+            .Select(a => new
+            {
+                a.Date,
+                CourseName = CourseName(a),
+                Status = a.Details.First(d => d.StudentId == selectedStudentId).Status
+            })
+            .ToList();
+
+        int total = sessions.Count;
+        int present = sessions.Count(s => s.Status == AttendanceControl.Web.Models.AttendanceStatus.Presente);
+        int absent = sessions.Count(s => s.Status == AttendanceControl.Web.Models.AttendanceStatus.Ausente);
+        int late = sessions.Count(s => s.Status == AttendanceControl.Web.Models.AttendanceStatus.Tardanza);
+        double rate = total == 0 ? 0 : Math.Round(present * 100.0 / total, 1);
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:1rem; margin-bottom:1.25rem;">
+            <div class="card stat-card"><span class="stat-value">@rate%</span><span class="stat-label">Asistencia</span></div>
+            <div class="card stat-card"><span class="stat-value">@present</span><span class="stat-label">Presentes</span></div>
+            <div class="card stat-card"><span class="stat-value">@late</span><span class="stat-label">Tardanzas</span></div>
+            <div class="card stat-card"><span class="stat-value">@absent</span><span class="stat-label">Ausencias</span></div>
+        </div>
+
+        @if (sessions.Count == 0)
+        {
+            <div class="card empty-state"><h3>Sin sesiones registradas</h3><p>Este estudiante no tiene historial de asistencia todavía.</p></div>
+        }
+        else
+        {
+            <div class="card" style="padding:0;">
+                <table class="data-table">
+                    <thead><tr><th>Fecha</th><th>Curso</th><th>Estado</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in sessions)
+                        {
+                            <tr>
+                                <td class="mono">@s.Date.ToString("yyyy-MM-dd")</td>
+                                <td>@s.CourseName</td>
+                                <td>
+                                    @if (s.Status == AttendanceControl.Web.Models.AttendanceStatus.Presente)
+                                    {
+                                        <span class="stamp stamp-present">Presente</span>
+                                    }
+                                    else if (s.Status == AttendanceControl.Web.Models.AttendanceStatus.Tardanza)
+                                    {
+                                        <span class="stamp stamp-late">Tardanza</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="stamp stamp-absent">Ausente</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+    else if (reportType == "course" && selectedCourseId != 0)
+    {
+        var courseSessions = attendances.Where(a => a.CourseId == selectedCourseId).OrderByDescending(a => a.Date).ToList();
+
+        int totalSessions = courseSessions.Count;
+        double avgRate = totalSessions == 0 ? 0 : Math.Round(courseSessions.Average(a => a.TotalStudents == 0 ? 0 : a.PresentCount * 100.0 / a.TotalStudents), 1);
+
+        var byStudent = courseSessions
+            .SelectMany(a => a.Details)
+            .GroupBy(d => new { d.StudentId, d.StudentCode, d.StudentName })
+            .Select(g => new
+            {
+                g.Key.StudentCode,
+                g.Key.StudentName,
+                Present = g.Count(d => d.Status == AttendanceControl.Web.Models.AttendanceStatus.Presente),
+                Late = g.Count(d => d.Status == AttendanceControl.Web.Models.AttendanceStatus.Tardanza),
+                Absent = g.Count(d => d.Status == AttendanceControl.Web.Models.AttendanceStatus.Ausente),
+                Total = g.Count()
+            })
+            .OrderByDescending(x => x.Absent)
+            .ToList();
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:1rem; margin-bottom:1.25rem;">
+            <div class="card stat-card"><span class="stat-value">@totalSessions</span><span class="stat-label">Sesiones registradas</span></div>
+            <div class="card stat-card"><span class="stat-value">@avgRate%</span><span class="stat-label">Asistencia promedio</span></div>
+        </div>
+
+        @if (byStudent.Count == 0)
+        {
+            <div class="card empty-state"><h3>Sin sesiones registradas</h3><p>Este curso no tiene historial de asistencia todavía.</p></div>
+        }
+        else
+        {
+            <div class="card" style="padding:0;">
+                <table class="data-table">
+                    <thead><tr><th>Estudiante</th><th>Presentes</th><th>Tardanzas</th><th>Ausencias</th><th>% Asistencia</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in byStudent)
+                        {
+                            <tr>
+                                <td>@row.StudentCode - @row.StudentName</td>
+                                <td>@row.Present</td>
+                                <td>@row.Late</td>
+                                <td>@row.Absent</td>
+                                <td>@(row.Total == 0 ? 0 : Math.Round(row.Present * 100.0 / row.Total, 1))%</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="card empty-state">
+            <h3>Selecciona un estudiante o curso</h3>
+            <p>Elige un tipo de reporte y un elemento arriba para ver el detalle.</p>
+        </div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private string? errorMessage;
+    private string reportType = "student";
+    private int selectedStudentId = 0;
+    private int selectedCourseId = 0;
+
+    private List<AttendanceControl.Web.Models.StudentDTO> students = new();
+    private List<AttendanceControl.Web.Models.CourseDTO> courses = new();
+    private List<AttendanceControl.Web.Models.AttendanceDTO> attendances = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            students = await StudentService.GetAllAsync();
+            courses = await CourseService.GetAllAsync();
+            attendances = await AttendanceService.GetAllAsync();
+        }
+        catch
+        {
+            errorMessage = "No se pudo conectar con el servidor. Verifica que la API esté corriendo.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string CourseName(AttendanceControl.Web.Models.AttendanceDTO attendance)
+    {
+        if (!string.IsNullOrWhiteSpace(attendance.CourseName))
+            return attendance.CourseName;
+
+        var course = courses.FirstOrDefault(c => c.Id == attendance.CourseId);
+        return course is null ? "-" : $"{course.Code} - {course.Name}";
+    }
+}

@@ -53,9 +53,10 @@ else
             courseCount = courses.Count;
             studentCount = students.Count;
             instructorCount = instructors.Count;
-            attendanceRate = attendances.Count == 0
+            var totalStudentsInAttendance = attendances.Sum(a => a.TotalStudents);
+            attendanceRate = totalStudentsInAttendance == 0
                 ? 0
-                : (int)Math.Round(attendances.Count(a => a.IsPresent) * 100.0 / attendances.Count);
+                : (int)Math.Round(attendances.Sum(a => a.PresentCount) * 100.0 / totalStudentsInAttendance);
         }
         catch
         {
