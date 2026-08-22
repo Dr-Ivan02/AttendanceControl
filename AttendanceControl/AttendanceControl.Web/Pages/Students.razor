@@ -85,14 +85,19 @@ else
                 <div class="alert alert-danger">@formError</div>
             }
 
-            <div class="form-group">
-                <label>Código</label>
-                <input @bind="formCode" placeholder="Ej. EST001" />
-            </div>
+            @if (editingId is not null)
+            {
+                <div class="form-group">
+                    <label>Código</label>
+                    <input value="@formCode" disabled />
+                </div>
+            }
+
             <div class="form-group">
                 <label>Nombre</label>
                 <input @bind="formName" placeholder="Ej. Juan Pérez" />
             </div>
+
             <div class="form-group">
                 <label>Curso</label>
                 <select @bind="formCourseId">
@@ -215,9 +220,9 @@ else
 
     private async Task SaveStudent()
     {
-        if (string.IsNullOrWhiteSpace(formName) || string.IsNullOrWhiteSpace(formCode))
+        if (string.IsNullOrWhiteSpace(formName))
         {
-            formError = "Código y nombre son obligatorios.";
+            formError = "El nombre es obligatorio.";
             return;
         }
         if (formCourseId == 0)
@@ -229,21 +234,30 @@ else
         isSaving = true;
         formError = null;
 
-        var dto = new AttendanceControl.Web.Models.CreateStudentDTO { Code = formCode, Name = formName, CourseId = formCourseId };
-        bool success = editingId is null
-            ? await StudentService.CreateAsync(dto)
-            : await StudentService.UpdateAsync(editingId.Value, dto);
-
-        isSaving = false;
-
-        if (success)
+        try
         {
-            showModal = false;
-            await ReloadStudents();
+            var dto = new AttendanceControl.Web.Models.CreateStudentDTO { Name = formName, CourseId = formCourseId };
+            bool success = editingId is null
+                ? await StudentService.CreateAsync(dto)
+                : await StudentService.UpdateAsync(editingId.Value, dto);
+
+            if (success)
+            {
+                showModal = false;
+                await ReloadStudents();
+            }
+            else
+            {
+                formError = "No se pudo guardar el estudiante. Verifica los datos e intenta de nuevo.";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            formError = "No se pudo guardar el estudiante. Verifica los datos e intenta de nuevo.";
+            formError = $"Error inesperado al guardar: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
         }
     }
 

@@ -33,9 +33,10 @@ namespace AttendanceControl.Application.Services
 
         public InstructorDTO Create(CreateInstructorDTO request)
         {
-            ValidateFields(request.Code, request.Name);
+            ValidateFields(request.Name);
 
             var newInstructor = _mapper.Map<Instructor>(request);
+            newInstructor.Code = _instructorRepository.GenerateNextCode();
             newInstructor.IsActive = true;
 
             _instructorRepository.Create(newInstructor);
@@ -44,14 +45,13 @@ namespace AttendanceControl.Application.Services
 
         public bool Update(int id, CreateInstructorDTO request)
         {
-            ValidateFields(request.Code, request.Name);
+            ValidateFields(request.Name);
 
             var existingInstructor = _instructorRepository.GetById(id);
             if (existingInstructor == null || !existingInstructor.IsActive)
                 return false;
 
             existingInstructor.Name = request.Name;
-            existingInstructor.Code = request.Code;
 
             _instructorRepository.Update(existingInstructor);
             return true;
@@ -74,11 +74,8 @@ namespace AttendanceControl.Application.Services
             return true;
         }
 
-        private static void ValidateFields(string code, string name)
+        private static void ValidateFields(string name)
         {
-            if (string.IsNullOrWhiteSpace(code))
-                throw new ArgumentException("El código del instructor es obligatorio.");
-
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("El nombre del instructor es obligatorio.");
         }

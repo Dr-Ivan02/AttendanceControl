@@ -78,10 +78,14 @@ else
                 <div class="alert alert-danger">@formError</div>
             }
 
-            <div class="form-group">
-                <label>Código</label>
-                <input @bind="formCode" placeholder="Ej. PROF01" />
-            </div>
+            @if (editingId is not null)
+            {
+                <div class="form-group">
+                    <label>Código</label>
+                    <input value="@formCode" disabled />
+                </div>
+            }
+
             <div class="form-group">
                 <label>Nombre</label>
                 <input @bind="formName" placeholder="Ej. María Gómez" />
@@ -182,30 +186,39 @@ else
 
     private async Task SaveInstructor()
     {
-        if (string.IsNullOrWhiteSpace(formName) || string.IsNullOrWhiteSpace(formCode))
+        if (string.IsNullOrWhiteSpace(formName))
         {
-            formError = "Código y nombre son obligatorios.";
+            formError = "El nombre es obligatorio.";
             return;
         }
 
         isSaving = true;
         formError = null;
 
-        var dto = new AttendanceControl.Web.Models.CreateInstructorDTO { Code = formCode, Name = formName };
-        bool success = editingId is null
-            ? await InstructorService.CreateAsync(dto)
-            : await InstructorService.UpdateAsync(editingId.Value, dto);
-
-        isSaving = false;
-
-        if (success)
+        try
         {
-            showModal = false;
-            await LoadInstructors();
+            var dto = new AttendanceControl.Web.Models.CreateInstructorDTO { Name = formName };
+            bool success = editingId is null
+                ? await InstructorService.CreateAsync(dto)
+                : await InstructorService.UpdateAsync(editingId.Value, dto);
+
+            if (success)
+            {
+                showModal = false;
+                await LoadInstructors();
+            }
+            else
+            {
+                formError = "No se pudo guardar el instructor. Verifica los datos e intenta de nuevo.";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            formError = "No se pudo guardar el instructor. Verifica los datos e intenta de nuevo.";
+            formError = $"Error inesperado al guardar: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
         }
     }
 

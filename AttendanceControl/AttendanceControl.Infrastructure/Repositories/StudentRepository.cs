@@ -7,6 +7,8 @@ namespace AttendanceControl.Infrastructure.Repositories
 {
     public class StudentRepository : BaseRepository<Student>
     {
+        private const string CodePrefix = "EST";
+
         public StudentRepository(ApplicationDbContext context) : base(context)
         {
         }
@@ -37,6 +39,27 @@ namespace AttendanceControl.Infrastructure.Repositories
                 .Include(s => s.Course)
                 .Where(s => s.IsActive)
                 .ToList();
+        }
+
+        public string GenerateNextCode()
+        {
+            var maxNumber = _context.Students
+                .AsEnumerable()
+                .Select(s => ExtractSequence(s.Code))
+                .DefaultIfEmpty(0)
+                .Max();
+
+            return $"{CodePrefix}{(maxNumber + 1):D4}";
+        }
+
+        private static int ExtractSequence(string code)
+        {
+            if (!string.IsNullOrEmpty(code) && code.StartsWith(CodePrefix) &&
+                int.TryParse(code.AsSpan(CodePrefix.Length), out var number))
+            {
+                return number;
+            }
+            return 0;
         }
     }
 }

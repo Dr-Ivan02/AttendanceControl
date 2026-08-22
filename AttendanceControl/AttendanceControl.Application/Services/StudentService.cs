@@ -33,9 +33,10 @@ namespace AttendanceControl.Application.Services
 
         public StudentDTO Create(CreateStudentDTO request)
         {
-            ValidateFields(request.Code, request.Name, request.CourseId);
+            ValidateFields(request.Name, request.CourseId);
 
             var newStudent = _mapper.Map<Student>(request);
+            newStudent.Code = _studentRepository.GenerateNextCode();
             newStudent.IsActive = true;
 
             _studentRepository.Create(newStudent);
@@ -48,10 +49,9 @@ namespace AttendanceControl.Application.Services
             if (existingStudent == null)
                 return false;
 
-            ValidateFields(request.Code, request.Name, request.CourseId);
+            ValidateFields(request.Name, request.CourseId);
 
             existingStudent.Name = request.Name;
-            existingStudent.Code = request.Code;
             existingStudent.CourseId = request.CourseId;
 
             _studentRepository.Update(existingStudent);
@@ -75,11 +75,8 @@ namespace AttendanceControl.Application.Services
             return _mapper.Map<IEnumerable<StudentWithCourseDTO>>(students);
         }
 
-        private void ValidateFields(string code, string name, int courseId)
+        private void ValidateFields(string name, int courseId)
         {
-            if (string.IsNullOrWhiteSpace(code))
-                throw new ArgumentException("El código del estudiante es obligatorio.");
-
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("El nombre del estudiante es obligatorio.");
 
