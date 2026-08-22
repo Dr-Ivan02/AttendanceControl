@@ -24,6 +24,11 @@ namespace AttendanceControl.Web.Services
             return await response.Content.ReadFromJsonAsync<CourseDTO>();
         }
 
+        public async Task<List<StudentDTO>> GetStudentsAsync(int courseId)
+        {
+            return await _http.GetFromJsonAsync<List<StudentDTO>>($"courses/{courseId}/students") ?? new();
+        }
+
         public async Task<bool> CreateAsync(CreateCourseDTO dto)
         {
             var response = await _http.PostAsJsonAsync("courses", dto);

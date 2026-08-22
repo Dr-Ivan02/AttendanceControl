@@ -60,8 +60,15 @@ namespace AttendanceControl.Api.Controllers
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            if (!_instructorService.Delete(id)) return NotFound();
-            return NoContent();
+            try
+            {
+                if (!_instructorService.Delete(id)) return NotFound();
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

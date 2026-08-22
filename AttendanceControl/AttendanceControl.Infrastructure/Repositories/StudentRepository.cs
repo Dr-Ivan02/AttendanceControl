@@ -1,7 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
 using AttendanceControl.Domain.Entities;
 using AttendanceControl.Infrastructure.Context;
 using AttendanceControl.Infrastructure.Core;
+using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceControl.Infrastructure.Repositories
 {
@@ -11,6 +11,21 @@ namespace AttendanceControl.Infrastructure.Repositories
         {
         }
 
+        public override IEnumerable<Student> GetAll()
+        {
+            return _context.Students
+                .Include(s => s.Course)
+                .Where(s => s.IsActive)
+                .ToList();
+        }
+
+        public override Student? GetById(int id)
+        {
+            return _context.Students
+                .Include(s => s.Course)
+                .FirstOrDefault(s => s.Id == id);
+        }
+
         public void Update(Student student)
         {
             _context.SaveChanges();
@@ -18,7 +33,10 @@ namespace AttendanceControl.Infrastructure.Repositories
 
         public IEnumerable<Student> GetStudentsWithCourse()
         {
-            return _entities.Include(s => s.Course).ToList();
+            return _context.Students
+                .Include(s => s.Course)
+                .Where(s => s.IsActive)
+                .ToList();
         }
     }
 }

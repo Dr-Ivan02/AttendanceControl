@@ -1,4 +1,4 @@
-﻿using AttendanceControl.Domain.Entities;
+using AttendanceControl.Domain.Entities;
 using AttendanceControl.Infrastructure.Context;
 using AttendanceControl.Infrastructure.Core;
 
@@ -8,6 +8,13 @@ namespace AttendanceControl.Infrastructure.Repositories
     {
         public InstructorRepository(ApplicationDbContext context) : base(context)
         {
+        }
+
+        public override IEnumerable<Instructor> GetAll()
+        {
+            return _context.Instructors
+                .Where(i => i.IsActive)
+                .ToList();
         }
 
         public void Update(Instructor instructor)

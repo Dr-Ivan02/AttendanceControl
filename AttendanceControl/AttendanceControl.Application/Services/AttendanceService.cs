@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using AttendanceControl.Application.Contract;
 using AttendanceControl.Application.Dtos.Attendance;
 using AttendanceControl.Domain.Entities;
@@ -35,25 +35,42 @@ namespace AttendanceControl.Application.Services
 
         public AttendanceDTO Create(CreateAttendanceDTO request)
         {
-            ValidateReferences(request.StudentId, request.CourseId);
+            ValidateRequest(request);
 
-            var newAttendance = _mapper.Map<Attendance>(request);
+            if (_attendanceRepository.GetByCourseAndDate(request.CourseId, request.Date) is not null)
+                throw new ArgumentException("Ya existe una asistencia registrada para este curso en esa fecha.");
+
+            var newAttendance = new Attendance(request.Date.Date, request.CourseId)
+            {
+                Details = request.Details
+                    .Select(d => new AttendanceDetail(d.StudentId, d.IsPresent))
+                    .ToList()
+            };
+
             _attendanceRepository.Create(newAttendance);
-            return _mapper.Map<AttendanceDTO>(newAttendance);
+            return _mapper.Map<AttendanceDTO>(_attendanceRepository.GetById(newAttendance.Id)!);
         }
 
         public bool Update(int id, CreateAttendanceDTO request)
         {
-            ValidateReferences(request.StudentId, request.CourseId);
-
             var existingAttendance = _attendanceRepository.GetById(id);
             if (existingAttendance == null)
                 return false;
 
-            existingAttendance.Date = request.Date;
-            existingAttendance.IsPresent = request.IsPresent;
-            existingAttendance.StudentId = request.StudentId;
+            ValidateRequest(request);
+
+            var sameDateAttendance = _attendanceRepository.GetByCourseAndDate(request.CourseId, request.Date);
+            if (sameDateAttendance is not null && sameDateAttendance.Id != id)
+                throw new ArgumentException("Ya existe una asistencia registrada para este curso en esa fecha.");
+
+            existingAttendance.Date = request.Date.Date;
             existingAttendance.CourseId = request.CourseId;
+            existingAttendance.Details.Clear();
+
+            foreach (var detail in request.Details)
+            {
+                existingAttendance.Details.Add(new AttendanceDetail(detail.StudentId, detail.IsPresent));
+            }
 
             _attendanceRepository.Update(existingAttendance);
             return true;
@@ -69,13 +86,38 @@ namespace AttendanceControl.Application.Services
             return true;
         }
 
-        private void ValidateReferences(int studentId, int courseId)
+        private void ValidateRequest(CreateAttendanceDTO request)
         {
-            if (_studentRepository.GetById(studentId) == null)
-                throw new ArgumentException($"No existe un Estudiante con Id = {studentId}.");
+            var course = _courseRepository.GetById(request.CourseId);
+            if (course == null || !course.IsActive)
+                throw new ArgumentException($"No existe un Curso activo con Id = {request.CourseId}.");
 
-            if (!_courseRepository.Exists(courseId))
-                throw new ArgumentException($"No existe un Curso con Id = {courseId}.");
+            var courseStudents = _courseRepository.GetStudentsByCourse(request.CourseId).ToList();
+            if (courseStudents.Count == 0)
+                throw new ArgumentException("No puedes registrar asistencia de un curso sin estudiantes activos.");
+
+            if (request.Details.Count == 0)
+                throw new ArgumentException("La asistencia debe incluir a los estudiantes del curso.");
+
+            var repeatedStudentId = request.Details
+                .GroupBy(d => d.StudentId)
+                .FirstOrDefault(g => g.Count() > 1);
+
+            if (repeatedStudentId is not null)
+                throw new ArgumentException($"El estudiante con Id = {repeatedStudentId.Key} está repetido en la asistencia.");
+
+            var expectedStudentIds = courseStudents.Select(s => s.Id).OrderBy(id => id).ToList();
+            var receivedStudentIds = request.Details.Select(d => d.StudentId).OrderBy(id => id).ToList();
+
+            if (!expectedStudentIds.SequenceEqual(receivedStudentIds))
+                throw new ArgumentException("La asistencia debe incluir exactamente a los estudiantes activos del curso seleccionado.");
+
+            foreach (var detail in request.Details)
+            {
+                var student = _studentRepository.GetById(detail.StudentId);
+                if (student == null || !student.IsActive || student.CourseId != request.CourseId)
+                    throw new ArgumentException($"El estudiante con Id = {detail.StudentId} no pertenece al curso seleccionado.");
+            }
         }
     }
 }

@@ -1,13 +1,12 @@
-﻿@page "/attendances"
+@page "/attendances"
 @inject AttendanceControl.Web.Services.AttendanceApiService AttendanceService
-@inject AttendanceControl.Web.Services.StudentApiService StudentService
 @inject AttendanceControl.Web.Services.CourseApiService CourseService
 
 <PageTitle>Asistencias</PageTitle>
 
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-    <p style="color:var(--color-ink-light); margin:0;">Registra y consulta la asistencia por estudiante.</p>
-    <button class="btn btn-accent" @onclick="OpenCreateModal" disabled="@(students is null || students.Count == 0)">+ Nueva asistencia</button>
+    <p style="color:var(--color-ink-light); margin:0;">Registra y consulta la asistencia por curso completo.</p>
+    <button class="btn btn-accent" @onclick="OpenCreateModal" disabled="@(courses is null || courses.Count == 0)">+ Nueva asistencia</button>
 </div>
 
 @if (errorMessage is not null)
@@ -15,9 +14,9 @@
     <div class="alert alert-danger">@errorMessage</div>
 }
 
-@if (students is not null && students.Count == 0)
+@if (courses is not null && courses.Count == 0)
 {
-    <div class="alert alert-danger">Debes crear al menos un estudiante antes de registrar asistencias.</div>
+    <div class="alert alert-danger">Debes crear al menos un curso antes de registrar asistencias.</div>
 }
 
 @if (attendances is null)
@@ -38,10 +37,10 @@ else
             <thead>
                 <tr>
                     <th>Fecha</th>
-                    <th>Estudiante</th>
                     <th>Curso</th>
-                    <th>Estado</th>
-                    <th style="width:160px;"></th>
+                    <th>Presentes</th>
+                    <th>Ausentes</th>
+                    <th style="width:230px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -49,19 +48,11 @@ else
                 {
                     <tr>
                         <td class="mono">@a.Date.ToString("yyyy-MM-dd")</td>
-                        <td>@StudentName(a.StudentId)</td>
-                        <td>@CourseName(a.CourseId)</td>
+                        <td>@CourseName(a)</td>
+                        <td><span class="stamp stamp-present">@a.PresentCount / @a.TotalStudents</span></td>
+                        <td><span class="stamp stamp-absent">@a.AbsentCount</span></td>
                         <td>
-                            @if (a.IsPresent)
-                            {
-                                <span class="stamp stamp-present">Presente</span>
-                            }
-                            else
-                            {
-                                <span class="stamp stamp-absent">Ausente</span>
-                            }
-                        </td>
-                        <td>
+                            <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenDetails(a)">Ver</button>
                             <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(a)">Editar</button>
                             <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(a)">Eliminar</button>
                         </td>
@@ -88,21 +79,8 @@ else
                 <input type="date" @bind="formDate" />
             </div>
             <div class="form-group">
-                <label>Estudiante</label>
-                <select @bind="formStudentId">
-                    <option value="0">Selecciona un estudiante...</option>
-                    @if (students is not null)
-                    {
-                        @foreach (var s in students)
-                        {
-                            <option value="@s.Id">@s.Code - @s.Name</option>
-                        }
-                    }
-                </select>
-            </div>
-            <div class="form-group">
                 <label>Curso</label>
-                <select @bind="formCourseId">
+                <select value="@formCourseId" @onchange="OnCourseChanged" disabled="@(editingId is not null)">
                     <option value="0">Selecciona un curso...</option>
                     @if (courses is not null)
                     {
@@ -113,18 +91,88 @@ else
                     }
                 </select>
             </div>
-            <div class="form-group">
-                <label style="display:flex; align-items:center; gap:0.5rem; font-weight:500;">
-                    <input type="checkbox" style="width:auto;" @bind="formIsPresent" />
-                    Marcar como presente
-                </label>
-            </div>
+
+            @if (loadingStudents)
+            {
+                <p>Cargando estudiantes del curso...</p>
+            }
+            else if (formCourseId != 0 && studentRows.Count == 0)
+            {
+                <div class="alert alert-danger">Este curso no tiene estudiantes activos.</div>
+            }
+            else if (studentRows.Count > 0)
+            {
+                <div class="card" style="padding:0; margin-top:1rem;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Estudiante</th>
+                                <th style="width:140px;">Presente</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in studentRows)
+                            {
+                                <tr>
+                                    <td>@row.Code - @row.Name</td>
+                                    <td>
+                                        <input type="checkbox" style="width:auto;" @bind="row.IsPresent" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
 
             <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
                 <button class="btn btn-secondary" @onclick="CloseModal">Cancelar</button>
-                <button class="btn btn-primary" @onclick="SaveAttendance" disabled="@isSaving">
+                <button class="btn btn-primary" @onclick="SaveAttendance" disabled="@(isSaving || studentRows.Count == 0)">
                     @(isSaving ? "Guardando..." : "Guardar")
                 </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (detailsAttendance is not null)
+{
+    <div class="modal-backdrop" @onclick="CloseDetails">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <h3>Detalle de asistencia</h3>
+            <p style="color:var(--color-ink-light);">
+                @detailsAttendance.Date.ToString("yyyy-MM-dd") - @CourseName(detailsAttendance)
+            </p>
+            <div class="card" style="padding:0;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Estudiante</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var detail in detailsAttendance.Details.OrderBy(d => d.StudentName))
+                        {
+                            <tr>
+                                <td>@detail.StudentCode - @detail.StudentName</td>
+                                <td>
+                                    @if (detail.IsPresent)
+                                    {
+                                        <span class="stamp stamp-present">Presente</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="stamp stamp-absent">Ausente</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
+                <button class="btn btn-secondary" @onclick="CloseDetails">Cerrar</button>
             </div>
         </div>
     </div>
@@ -136,7 +184,7 @@ else
         <div class="modal-box" @onclick:stopPropagation="true">
             <h3>¿Eliminar este registro?</h3>
             <p style="color:var(--color-ink-light);">
-                Vas a eliminar la asistencia del @attendanceToDelete.Date.ToString("yyyy-MM-dd"). Esta acción no se puede deshacer.
+                Vas a eliminar la asistencia del @attendanceToDelete.Date.ToString("yyyy-MM-dd") para @CourseName(attendanceToDelete). Esta acción no se puede deshacer.
             </p>
             <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
                 <button class="btn btn-secondary" @onclick="CancelDelete">Cancelar</button>
@@ -148,35 +196,38 @@ else
 
 @code {
     private List<AttendanceControl.Web.Models.AttendanceDTO>? attendances;
-    private List<AttendanceControl.Web.Models.StudentDTO>? students;
     private List<AttendanceControl.Web.Models.CourseDTO>? courses;
     private string? errorMessage;
 
     private bool showModal = false;
     private int? editingId = null;
     private DateTime formDate = DateTime.Today;
-    private int formStudentId = 0;
     private int formCourseId = 0;
-    private bool formIsPresent = true;
     private string? formError;
     private bool isSaving = false;
+    private bool loadingStudents = false;
+    private List<StudentAttendanceRow> studentRows = new();
 
+    private AttendanceControl.Web.Models.AttendanceDTO? detailsAttendance;
     private bool showDeleteConfirm = false;
     private AttendanceControl.Web.Models.AttendanceDTO? attendanceToDelete;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
         try
         {
             errorMessage = null;
-            students = await StudentService.GetAllAsync();
             courses = await CourseService.GetAllAsync();
             attendances = await AttendanceService.GetAllAsync();
         }
         catch
         {
             errorMessage = "No se pudo conectar con el servidor. Verifica que la API esté corriendo.";
-            students = new();
             courses = new();
             attendances = new();
         }
@@ -187,38 +238,75 @@ else
         attendances = await AttendanceService.GetAllAsync();
     }
 
-    private string StudentName(int id)
+    private string CourseName(AttendanceControl.Web.Models.AttendanceDTO attendance)
     {
-        var s = students?.FirstOrDefault(x => x.Id == id);
-        return s is null ? "—" : $"{s.Code} - {s.Name}";
-    }
+        if (!string.IsNullOrWhiteSpace(attendance.CourseName))
+            return attendance.CourseName;
 
-    private string CourseName(int id)
-    {
-        var c = courses?.FirstOrDefault(x => x.Id == id);
-        return c is null ? "—" : $"{c.Code} - {c.Name}";
+        var course = courses?.FirstOrDefault(c => c.Id == attendance.CourseId);
+        return course is null ? "-" : $"{course.Code} - {course.Name}";
     }
 
     private void OpenCreateModal()
     {
         editingId = null;
         formDate = DateTime.Today;
-        formStudentId = 0;
         formCourseId = 0;
-        formIsPresent = true;
         formError = null;
+        studentRows = new();
         showModal = true;
     }
 
-    private void OpenEditModal(AttendanceControl.Web.Models.AttendanceDTO a)
+    private void OpenEditModal(AttendanceControl.Web.Models.AttendanceDTO attendance)
     {
-        editingId = a.Id;
-        formDate = a.Date;
-        formStudentId = a.StudentId;
-        formCourseId = a.CourseId;
-        formIsPresent = a.IsPresent;
+        editingId = attendance.Id;
+        formDate = attendance.Date;
+        formCourseId = attendance.CourseId;
         formError = null;
+        studentRows = attendance.Details
+            .OrderBy(d => d.StudentName)
+            .Select(d => new StudentAttendanceRow
+            {
+                StudentId = d.StudentId,
+                Code = d.StudentCode,
+                Name = d.StudentName,
+                IsPresent = d.IsPresent
+            })
+            .ToList();
         showModal = true;
+    }
+
+    private async Task OnCourseChanged(ChangeEventArgs args)
+    {
+        formError = null;
+        studentRows = new();
+
+        if (!int.TryParse(args.Value?.ToString(), out formCourseId) || formCourseId == 0)
+            return;
+
+        loadingStudents = true;
+        try
+        {
+            var students = await CourseService.GetStudentsAsync(formCourseId);
+            studentRows = students
+                .OrderBy(s => s.Name)
+                .Select(s => new StudentAttendanceRow
+                {
+                    StudentId = s.Id,
+                    Code = s.Code,
+                    Name = s.Name,
+                    IsPresent = true
+                })
+                .ToList();
+        }
+        catch
+        {
+            formError = "No se pudieron cargar los estudiantes del curso.";
+        }
+        finally
+        {
+            loadingStudents = false;
+        }
     }
 
     private void CloseModal()
@@ -228,9 +316,15 @@ else
 
     private async Task SaveAttendance()
     {
-        if (formStudentId == 0 || formCourseId == 0)
+        if (formCourseId == 0)
         {
-            formError = "Debes seleccionar un estudiante y un curso.";
+            formError = "Debes seleccionar un curso.";
+            return;
+        }
+
+        if (studentRows.Count == 0)
+        {
+            formError = "El curso seleccionado no tiene estudiantes para registrar.";
             return;
         }
 
@@ -239,10 +333,15 @@ else
 
         var dto = new AttendanceControl.Web.Models.CreateAttendanceDTO
         {
-            Date = formDate,
-            IsPresent = formIsPresent,
-            StudentId = formStudentId,
-            CourseId = formCourseId
+            Date = formDate.Date,
+            CourseId = formCourseId,
+            Details = studentRows
+                .Select(row => new AttendanceControl.Web.Models.CreateAttendanceDetailDTO
+                {
+                    StudentId = row.StudentId,
+                    IsPresent = row.IsPresent
+                })
+                .ToList()
         };
 
         bool success = editingId is null
@@ -258,13 +357,23 @@ else
         }
         else
         {
-            formError = "No se pudo guardar la asistencia. Verifica los datos e intenta de nuevo.";
+            formError = "No se pudo guardar la asistencia. Revisa si ya existe una asistencia para ese curso y fecha.";
         }
     }
 
-    private void ConfirmDelete(AttendanceControl.Web.Models.AttendanceDTO a)
+    private void OpenDetails(AttendanceControl.Web.Models.AttendanceDTO attendance)
     {
-        attendanceToDelete = a;
+        detailsAttendance = attendance;
+    }
+
+    private void CloseDetails()
+    {
+        detailsAttendance = null;
+    }
+
+    private void ConfirmDelete(AttendanceControl.Web.Models.AttendanceDTO attendance)
+    {
+        attendanceToDelete = attendance;
         showDeleteConfirm = true;
     }
 
@@ -282,5 +391,13 @@ else
         showDeleteConfirm = false;
         attendanceToDelete = null;
         await ReloadAttendances();
+    }
+
+    private class StudentAttendanceRow
+    {
+        public int StudentId { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public bool IsPresent { get; set; }
     }
 }

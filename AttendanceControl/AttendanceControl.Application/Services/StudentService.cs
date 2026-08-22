@@ -21,19 +21,19 @@ namespace AttendanceControl.Application.Services
 
         public IEnumerable<StudentDTO> GetAll()
         {
-            var students = _studentRepository.GetAll();
+            var students = _studentRepository.GetAll().Where(s => s.IsActive);
             return _mapper.Map<IEnumerable<StudentDTO>>(students);
         }
 
         public StudentDTO? GetById(int id)
         {
             var student = _studentRepository.GetById(id);
-            return student == null ? null : _mapper.Map<StudentDTO>(student);
+            return student == null || !student.IsActive ? null : _mapper.Map<StudentDTO>(student);
         }
 
         public StudentDTO Create(CreateStudentDTO request)
         {
-            ValidateFields(request.Name, request.CourseId);
+            ValidateFields(request.Code, request.Name, request.CourseId);
 
             var newStudent = _mapper.Map<Student>(request);
             newStudent.IsActive = true;
@@ -48,7 +48,7 @@ namespace AttendanceControl.Application.Services
             if (existingStudent == null)
                 return false;
 
-            ValidateFields(request.Name, request.CourseId);
+            ValidateFields(request.Code, request.Name, request.CourseId);
 
             existingStudent.Name = request.Name;
             existingStudent.Code = request.Code;
@@ -61,10 +61,11 @@ namespace AttendanceControl.Application.Services
         public bool Delete(int id)
         {
             var student = _studentRepository.GetById(id);
-            if (student == null)
+            if (student == null || !student.IsActive)
                 return false;
 
-            _studentRepository.Delete(id);
+            student.IsActive = false;
+            _studentRepository.Update(student);
             return true;
         }
 
@@ -74,13 +75,17 @@ namespace AttendanceControl.Application.Services
             return _mapper.Map<IEnumerable<StudentWithCourseDTO>>(students);
         }
 
-        private void ValidateFields(string name, int courseId)
+        private void ValidateFields(string code, string name, int courseId)
         {
+            if (string.IsNullOrWhiteSpace(code))
+                throw new ArgumentException("El código del estudiante es obligatorio.");
+
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("El nombre del estudiante es obligatorio.");
 
-            if (!_courseRepository.Exists(courseId))
-                throw new ArgumentException($"No existe un Curso con Id = {courseId}.");
+            var course = _courseRepository.GetById(courseId);
+            if (course == null || !course.IsActive)
+                throw new ArgumentException($"No existe un Curso activo con Id = {courseId}.");
         }
     }
 }

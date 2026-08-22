@@ -1,16 +1,22 @@
-﻿@page "/courses"
+@page "/courses"
 @inject AttendanceControl.Web.Services.CourseApiService CourseService
+@inject AttendanceControl.Web.Services.InstructorApiService InstructorService
 
 <PageTitle>Cursos</PageTitle>
 
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
     <p style="color:var(--color-ink-light); margin:0;">Gestiona los cursos activos del instituto.</p>
-    <button class="btn btn-accent" @onclick="OpenCreateModal">+ Nuevo curso</button>
+    <button class="btn btn-accent" @onclick="OpenCreateModal" disabled="@(instructors is null || instructors.Count == 0)">+ Nuevo curso</button>
 </div>
 
 @if (errorMessage is not null)
 {
     <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (instructors is not null && instructors.Count == 0)
+{
+    <div class="alert alert-danger">Debes crear al menos un instructor antes de agregar cursos.</div>
 }
 
 @if (courses is null)
@@ -22,7 +28,7 @@ else if (courses.Count == 0)
     <div class="card empty-state">
         <h3>Aún no hay cursos</h3>
         <p>Crea el primero para empezar a inscribir estudiantes.</p>
-        <button class="btn btn-primary" @onclick="OpenCreateModal">+ Nuevo curso</button>
+        <button class="btn btn-primary" @onclick="OpenCreateModal" disabled="@(instructors is null || instructors.Count == 0)">+ Nuevo curso</button>
     </div>
 }
 else
@@ -33,6 +39,7 @@ else
                 <tr>
                     <th>Código</th>
                     <th>Nombre</th>
+                    <th>Instructor</th>
                     <th style="width:160px;"></th>
                 </tr>
             </thead>
@@ -42,6 +49,7 @@ else
                     <tr>
                         <td class="mono">@course.Code</td>
                         <td>@course.Name</td>
+                        <td>@InstructorName(course)</td>
                         <td>
                             <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(course)">Editar</button>
                             <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(course)">Eliminar</button>
@@ -72,6 +80,19 @@ else
                 <label>Nombre</label>
                 <input @bind="formName" placeholder="Ej. Matemática Básica" />
             </div>
+            <div class="form-group">
+                <label>Instructor</label>
+                <select @bind="formInstructorId">
+                    <option value="0">Selecciona un instructor...</option>
+                    @if (instructors is not null)
+                    {
+                        @foreach (var instructor in instructors)
+                        {
+                            <option value="@instructor.Id">@instructor.Code - @instructor.Name</option>
+                        }
+                    }
+                </select>
+            </div>
 
             <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
                 <button class="btn btn-secondary" @onclick="CloseModal">Cancelar</button>
@@ -87,13 +108,13 @@ else
 {
     <div class="modal-backdrop" @onclick="CancelDelete">
         <div class="modal-box" @onclick:stopPropagation="true">
-            <h3>¿Eliminar este curso?</h3>
+            <h3>¿Desactivar este curso?</h3>
             <p style="color:var(--color-ink-light);">
-                Vas a eliminar <strong>@courseToDelete.Name</strong> (@courseToDelete.Code). Esta acción no se puede deshacer.
+                Vas a desactivar <strong>@courseToDelete.Name</strong> (@courseToDelete.Code). El historial de asistencia se conservará.
             </p>
             <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.25rem;">
                 <button class="btn btn-secondary" @onclick="CancelDelete">Cancelar</button>
-                <button class="btn btn-danger" @onclick="DoDelete">Sí, eliminar</button>
+                <button class="btn btn-danger" @onclick="DoDelete">Sí, desactivar</button>
             </div>
         </div>
     </div>
@@ -101,12 +122,14 @@ else
 
 @code {
     private List<AttendanceControl.Web.Models.CourseDTO>? courses;
+    private List<AttendanceControl.Web.Models.InstructorDTO>? instructors;
     private string? errorMessage;
 
     private bool showModal = false;
     private int? editingId = null;
     private string formCode = "";
     private string formName = "";
+    private int formInstructorId = 0;
     private string? formError;
     private bool isSaving = false;
 
@@ -115,21 +138,32 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadCourses();
+        await LoadData();
     }
 
-    private async Task LoadCourses()
+    private async Task LoadData()
     {
         try
         {
             errorMessage = null;
+            instructors = await InstructorService.GetAllAsync();
             courses = await CourseService.GetAllAsync();
         }
         catch
         {
             errorMessage = "No se pudo conectar con el servidor. Verifica que la API esté corriendo.";
             courses = new();
+            instructors = new();
         }
+    }
+
+    private string InstructorName(AttendanceControl.Web.Models.CourseDTO course)
+    {
+        if (!string.IsNullOrWhiteSpace(course.InstructorName))
+            return course.InstructorName;
+
+        var instructor = instructors?.FirstOrDefault(i => i.Id == course.InstructorId);
+        return instructor is null ? "-" : $"{instructor.Code} - {instructor.Name}";
     }
 
     private void OpenCreateModal()
@@ -137,6 +171,7 @@ else
         editingId = null;
         formCode = "";
         formName = "";
+        formInstructorId = 0;
         formError = null;
         showModal = true;
     }
@@ -146,6 +181,7 @@ else
         editingId = course.Id;
         formCode = course.Code;
         formName = course.Name;
+        formInstructorId = course.InstructorId ?? 0;
         formError = null;
         showModal = true;
     }
@@ -163,10 +199,22 @@ else
             return;
         }
 
+        if (formInstructorId == 0)
+        {
+            formError = "Debes seleccionar un instructor.";
+            return;
+        }
+
         isSaving = true;
         formError = null;
 
-        var dto = new AttendanceControl.Web.Models.CreateCourseDTO { Code = formCode, Name = formName };
+        var dto = new AttendanceControl.Web.Models.CreateCourseDTO
+        {
+            Code = formCode,
+            Name = formName,
+            InstructorId = formInstructorId
+        };
+
         bool success = editingId is null
             ? await CourseService.CreateAsync(dto)
             : await CourseService.UpdateAsync(editingId.Value, dto);
@@ -176,7 +224,7 @@ else
         if (success)
         {
             showModal = false;
-            await LoadCourses();
+            await LoadData();
         }
         else
         {
@@ -203,6 +251,6 @@ else
         await CourseService.DeleteAsync(courseToDelete.Id);
         showDeleteConfirm = false;
         courseToDelete = null;
-        await LoadCourses();
+        await LoadData();
     }
 }
