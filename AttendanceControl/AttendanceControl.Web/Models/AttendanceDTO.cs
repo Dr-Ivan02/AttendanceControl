@@ -1,5 +1,12 @@
 namespace AttendanceControl.Web.Models
 {
+    public enum AttendanceStatus
+    {
+        Ausente = 0,
+        Presente = 1,
+        Tardanza = 2
+    }
+
     public class AttendanceDTO
     {
         public int Id { get; set; }
@@ -9,6 +16,7 @@ namespace AttendanceControl.Web.Models
         public int TotalStudents { get; set; }
         public int PresentCount { get; set; }
         public int AbsentCount { get; set; }
+        public int LateCount { get; set; }
         public List<AttendanceDetailDTO> Details { get; set; } = new();
     }
 
@@ -18,7 +26,7 @@ namespace AttendanceControl.Web.Models
         public int StudentId { get; set; }
         public string StudentCode { get; set; } = string.Empty;
         public string StudentName { get; set; } = string.Empty;
-        public bool IsPresent { get; set; }
+        public AttendanceStatus Status { get; set; }
     }
 
     public class CreateAttendanceDTO
@@ -31,6 +39,6 @@ namespace AttendanceControl.Web.Models
     public class CreateAttendanceDetailDTO
     {
         public int StudentId { get; set; }
-        public bool IsPresent { get; set; }
+        public AttendanceStatus Status { get; set; }
     }
 }

@@ -32,41 +32,47 @@ else if (attendances.Count == 0)
 }
 else
 {
-    <div class="card" style="padding:0;">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Curso</th>
-                    <th>Presentes</th>
-                    <th>Ausentes</th>
-                    <th style="width:230px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var a in attendances)
-                {
-                    <tr>
-                        <td class="mono">@a.Date.ToString("yyyy-MM-dd")</td>
-                        <td>@CourseName(a)</td>
-                        <td><span class="stamp stamp-present">@a.PresentCount / @a.TotalStudents</span></td>
-                        <td><span class="stamp stamp-absent">@a.AbsentCount</span></td>
-                        <td>
-                            <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenDetails(a)">Ver</button>
-                            <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(a)">Editar</button>
-                            <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(a)">Eliminar</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+    @foreach (var group in attendances.GroupBy(a => a.CourseId).OrderBy(g => CourseName(g.First())))
+    {
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="font-size:1rem; margin-bottom:0.6rem;">@CourseName(group.First())</h3>
+            <div class="card" style="padding:0;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Presentes</th>
+                            <th>Tardanzas</th>
+                            <th>Ausentes</th>
+                            <th style="width:230px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in group.OrderByDescending(x => x.Date))
+                        {
+                            <tr>
+                                <td class="mono">@a.Date.ToString("yyyy-MM-dd")</td>
+                                <td><span class="stamp stamp-present">@a.PresentCount / @a.TotalStudents</span></td>
+                                <td><span class="stamp stamp-late">@a.LateCount</span></td>
+                                <td><span class="stamp stamp-absent">@a.AbsentCount</span></td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenDetails(a)">Ver</button>
+                                    <button class="btn btn-secondary" style="padding:0.35rem 0.7rem; margin-right:0.4rem;" @onclick="() => OpenEditModal(a)">Editar</button>
+                                    <button class="btn btn-danger" style="padding:0.35rem 0.7rem;" @onclick="() => ConfirmDelete(a)">Eliminar</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 }
 
 @if (showModal)
 {
     <div class="modal-backdrop" @onclick="CloseModal">
-        <div class="modal-box" @onclick:stopPropagation="true">
+        <div class="modal-box" style="width:520px;" @onclick:stopPropagation="true">
             <h3>@(editingId is null ? "Nueva asistencia" : "Editar asistencia")</h3>
 
             @if (formError is not null)
@@ -107,7 +113,7 @@ else
                         <thead>
                             <tr>
                                 <th>Estudiante</th>
-                                <th style="width:140px;">Presente</th>
+                                <th style="width:150px;">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -116,7 +122,11 @@ else
                                 <tr>
                                     <td>@row.Code - @row.Name</td>
                                     <td>
-                                        <input type="checkbox" style="width:auto;" @bind="row.IsPresent" />
+                                        <select @bind="row.Status">
+                                            <option value="@AttendanceControl.Web.Models.AttendanceStatus.Presente">Presente</option>
+                                            <option value="@AttendanceControl.Web.Models.AttendanceStatus.Tardanza">Tardanza</option>
+                                            <option value="@AttendanceControl.Web.Models.AttendanceStatus.Ausente">Ausente</option>
+                                        </select>
                                     </td>
                                 </tr>
                             }
@@ -157,9 +167,13 @@ else
                             <tr>
                                 <td>@detail.StudentCode - @detail.StudentName</td>
                                 <td>
-                                    @if (detail.IsPresent)
+                                    @if (detail.Status == AttendanceControl.Web.Models.AttendanceStatus.Presente)
                                     {
                                         <span class="stamp stamp-present">Presente</span>
+                                    }
+                                    else if (detail.Status == AttendanceControl.Web.Models.AttendanceStatus.Tardanza)
+                                    {
+                                        <span class="stamp stamp-late">Tardanza</span>
                                     }
                                     else
                                     {
@@ -270,7 +284,7 @@ else
                 StudentId = d.StudentId,
                 Code = d.StudentCode,
                 Name = d.StudentName,
-                IsPresent = d.IsPresent
+                Status = d.Status
             })
             .ToList();
         showModal = true;
@@ -295,7 +309,7 @@ else
                     StudentId = s.Id,
                     Code = s.Code,
                     Name = s.Name,
-                    IsPresent = true
+                    Status = AttendanceControl.Web.Models.AttendanceStatus.Presente
                 })
                 .ToList();
         }
@@ -339,7 +353,7 @@ else
                 .Select(row => new AttendanceControl.Web.Models.CreateAttendanceDetailDTO
                 {
                     StudentId = row.StudentId,
-                    IsPresent = row.IsPresent
+                    Status = row.Status
                 })
                 .ToList()
         };
@@ -398,6 +412,6 @@ else
         public int StudentId { get; set; }
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public bool IsPresent { get; set; }
+        public AttendanceControl.Web.Models.AttendanceStatus Status { get; set; }
     }
 }

@@ -43,7 +43,7 @@ namespace AttendanceControl.Application.Services
             var newAttendance = new Attendance(request.Date.Date, request.CourseId)
             {
                 Details = request.Details
-                    .Select(d => new AttendanceDetail(d.StudentId, d.IsPresent))
+                    .Select(d => new AttendanceDetail(d.StudentId, d.Status))
                     .ToList()
             };
 
@@ -69,7 +69,7 @@ namespace AttendanceControl.Application.Services
 
             foreach (var detail in request.Details)
             {
-                existingAttendance.Details.Add(new AttendanceDetail(detail.StudentId, detail.IsPresent));
+                existingAttendance.Details.Add(new AttendanceDetail(detail.StudentId, detail.Status));
             }
 
             _attendanceRepository.Update(existingAttendance);

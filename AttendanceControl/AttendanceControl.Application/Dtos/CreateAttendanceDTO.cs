@@ -1,3 +1,5 @@
+using AttendanceControl.Domain.Enums;
+
 namespace AttendanceControl.Application.Dtos.Attendance
 {
     public class CreateAttendanceDTO
@@ -10,6 +12,6 @@ namespace AttendanceControl.Application.Dtos.Attendance
     public class CreateAttendanceDetailDTO
     {
         public int StudentId { get; set; }
-        public bool IsPresent { get; set; }
+        public AttendanceStatus Status { get; set; }
     }
 }

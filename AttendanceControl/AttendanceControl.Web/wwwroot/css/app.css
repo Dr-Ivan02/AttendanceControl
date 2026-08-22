@@ -225,7 +225,6 @@ a {
     padding: 0.25rem 0.7rem;
     border-radius: 999px;
     border: 2px solid currentColor;
-    transform: rotate(-3deg);
 }
 
 .stamp-present {
@@ -234,6 +233,9 @@ a {
 
 .stamp-absent {
     color: var(--color-danger);
+}
+.stamp-late {
+    color: var(--color-accent);
 }
 
 .form-group {
